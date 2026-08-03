@@ -455,13 +455,17 @@ pub fn bin(name: &str) -> Command {
 
 /// Returns a path to the Cargo project binary with the given name.
 fn bin_path(name: &str) -> PathBuf {
-    std::env::current_exe()
-        .unwrap()
-        .parent()
-        .expect("executable's directory")
-        .parent()
-        .expect("target profile directory")
-        .join(format!("{name}{}", EXE_SUFFIX))
+    std::env::var_os("CARGO_BIN_EXE_bttf").map(PathBuf::from).unwrap_or_else(
+        || {
+            std::env::current_exe()
+                .expect("test executable's current directory")
+                .parent()
+                .expect("test executable's directory")
+                .parent()
+                .expect("target profile directory")
+                .join(format!("{name}{}", EXE_SUFFIX))
+        },
+    )
 }
 
 fn cross_runner() -> Option<String> {
