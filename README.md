@@ -218,6 +218,13 @@ cargo install bttf --no-default-features
 The benefit of disabling locale support is faster compile times and a smaller
 `bttf` binary.
 
+Or, install it with [x-cmd](https://www.x-cmd.com/mod/eget), which downloads the pre-built binary from GitHub Releases:
+
+```console
+x eget use BurntSushi/bttf
+```
+
+
 ### bttf as a library
 
 There is relatively little datetime logic inside of bttf proper.
