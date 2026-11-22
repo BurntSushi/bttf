@@ -161,7 +161,7 @@ fn auto_time_zone() {
     let tmp = TempDir::new();
     tmp.create(
         "foo",
-        "America/New_York Pacific/Honolulu Antarctica/Troll Israel",
+        "America/New_York Pacific/Honolulu Antarctica/Troll Asia/Jerusalem",
     );
 
     assert_cmd_snapshot!(
@@ -170,7 +170,7 @@ fn auto_time_zone() {
     success: true
     exit_code: 0
     ----- stdout -----
-    {"tags":[{"value":"America/New_York"},{"value":"Pacific/Honolulu"},{"value":"Antarctica/Troll"},{"value":"Israel"}],"data":{"text":"foo\n"}}
+    {"tags":[{"value":"America/New_York"},{"value":"Pacific/Honolulu"},{"value":"Antarctica/Troll"},{"value":"Asia/Jerusalem"}],"data":{"text":"foo\n"}}
 
     ----- stderr -----
     "#,

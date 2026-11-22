@@ -2,20 +2,37 @@ use crate::{bttf, command::assert_cmd_snapshot};
 
 #[test]
 fn basic() {
-    assert_cmd_snapshot!(
-        bttf(["tz", "compatible", "2025-03-09T17:00+10:30"]),
-        @r"
-    success: true
-    exit_code: 0
-    ----- stdout -----
-    Australia/Adelaide
-    Australia/Broken_Hill
-    Australia/South
-    Australia/Yancowinna
+    let has_legacy = jiff::tz::TimeZone::get("Australia/South").is_ok();
+    if has_legacy {
+        assert_cmd_snapshot!(
+            bttf(["tz", "compatible", "2025-03-09T17:00+10:30"]),
+            @r"
+        success: true
+        exit_code: 0
+        ----- stdout -----
+        Australia/Adelaide
+        Australia/Broken_Hill
+        Australia/South
+        Australia/Yancowinna
 
-    ----- stderr -----
-    ",
-    );
+        ----- stderr -----
+        ",
+        );
+    } else {
+        assert_cmd_snapshot!(
+            bttf(["tz", "compatible", "2025-03-09T17:00+10:30"]),
+            @r"
+        success: true
+        exit_code: 0
+        ----- stdout -----
+        Australia/Adelaide
+        Australia/Broken_Hill
+        Australia/Yancowinna
+
+        ----- stderr -----
+        ",
+        );
+    }
 }
 
 #[test]

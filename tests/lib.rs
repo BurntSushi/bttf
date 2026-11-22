@@ -278,7 +278,7 @@ fn no_args_locale() {
 
     crate::command::assert_cmd_snapshot!(
         bttf_bare()
-            .env("TZ", "US/Eastern")
+            .env("TZ", "America/New_York")
             .env("BTTF_LOCALE", "en-US-u-ca-buddhist"),
         @r"
     success: true
