@@ -122,6 +122,16 @@ jobs:
       with:
         toolchain: ${{ matrix.rust }}
 
+    # Docker 29.4.2 on the runner blocks socketcall, which breaks spawning
+    # subprocesses in the 32-bit integration tests. Use a version with the fix.
+    # See: https://github.com/moby/moby/pull/52537
+    - name: Install Docker
+      if: matrix.os == 'ubuntu-latest' && matrix.target != ''
+      uses: docker/setup-docker-action@v4
+      with:
+        version: v29.9.2
+        set-host: true
+
     - name: Use Cross
       if: matrix.os == 'ubuntu-latest' && matrix.target != ''
       run: |
