@@ -4,7 +4,7 @@ use {
     anyhow::Context,
     bstr::{BStr, ByteSlice},
     jiff::{
-        ToSpan, Unit, Zoned, civil, fmt,
+        ToSpan, Unit, ZonedDateTime, civil, fmt,
         tz::{self, Offset},
     },
 };
@@ -43,7 +43,7 @@ static RFC2822_PARSER: fmt::rfc2822::DateTimeParser =
 #[derive(Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub struct DateTime {
     /// The actual parsed datetime. i.e., The thing we operate on.
-    zdt: Zoned,
+    zdt: ZonedDateTime,
 }
 
 impl DateTime {
@@ -250,9 +250,9 @@ the next Wednesday or 5pm in 1 week from today.
     /// Get the underlying Jiff zoned date time.
     ///
     /// If possible, prefer defining an operation on `DateTime` instead of
-    /// using a `Zoned` directly. This helps centralize the operations we
-    /// need, and also helps encourage consistent error reporting.
-    pub fn get(&self) -> &Zoned {
+    /// using a `ZonedDateTime` directly. This helps centralize the operations
+    /// we need, and also helps encourage consistent error reporting.
+    pub fn get(&self) -> &ZonedDateTime {
         &self.zdt
     }
 
@@ -295,7 +295,7 @@ the next Wednesday or 5pm in 1 week from today.
     ) -> impl Iterator<Item = DateTime> {
         tz.get()
             .preceding(self.zdt.timestamp())
-            .map(|t| t.timestamp().to_zoned(tz.get().clone()).into())
+            .map(|t| t.timestamp().to_zoned_datetime(tz.get().clone()).into())
     }
 
     pub fn tz_following(
@@ -304,7 +304,7 @@ the next Wednesday or 5pm in 1 week from today.
     ) -> impl Iterator<Item = DateTime> {
         tz.get()
             .following(self.zdt.timestamp())
-            .map(|t| t.timestamp().to_zoned(tz.get().clone()).into())
+            .map(|t| t.timestamp().to_zoned_datetime(tz.get().clone()).into())
     }
 
     /// Returns the instant immediately before this one.
@@ -334,8 +334,8 @@ impl Default for DateTime {
     }
 }
 
-impl From<Zoned> for DateTime {
-    fn from(zdt: Zoned) -> DateTime {
+impl From<ZonedDateTime> for DateTime {
+    fn from(zdt: ZonedDateTime) -> DateTime {
         DateTime { zdt }
     }
 }
@@ -371,7 +371,8 @@ impl FromBytes for DateTime {
         // find out that we did have a time zone annotation but
         // something else about it was invalid, then we'll want to
         // return this error.
-        let temporal_parse_err = match TEMPORAL_PARSER.parse_zoned(s) {
+        let temporal_parse_err = match TEMPORAL_PARSER.parse_zoned_datetime(s)
+        {
             Err(err) => err,
             Ok(zdt) => return Ok(DateTime::from(zdt)),
         };
@@ -402,13 +403,15 @@ impl FromBytes for DateTime {
                     s = s.as_bstr(),
                 ),
                 Some(fmt::temporal::PiecesOffset::Zulu) => {
-                    dt.to_zoned(tz::TimeZone::unknown())?
+                    dt.to_zoned_datetime(tz::TimeZone::unknown())?
                 }
                 Some(fmt::temporal::PiecesOffset::Numeric(ref off)) => {
                     if off.offset() == Offset::UTC && off.is_negative() {
-                        dt.to_zoned(tz::TimeZone::unknown())?
+                        dt.to_zoned_datetime(tz::TimeZone::unknown())?
                     } else {
-                        dt.to_zoned(tz::TimeZone::fixed(off.offset()))?
+                        dt.to_zoned_datetime(tz::TimeZone::fixed(
+                            off.offset(),
+                        ))?
                     }
                 }
                 Some(unk) => {
@@ -418,7 +421,7 @@ impl FromBytes for DateTime {
             return Ok(DateTime::from(zdt));
         }
         // N.B. This also includes RFC 9110.
-        if let Ok(zdt) = RFC2822_PARSER.parse_zoned(s) {
+        if let Ok(zdt) = RFC2822_PARSER.parse_zoned_datetime(s) {
             return Ok(DateTime::from(zdt));
         }
         anyhow::bail!("unrecognized datetime `{s}`", s = BStr::new(s))
@@ -485,7 +488,7 @@ impl<'de> serde::Deserialize<'de> for DateTime {
 #[derive(Clone, Debug)]
 pub struct DateTimeFlexible {
     /// The actual parsed datetime. i.e., The thing we operate on.
-    zdt: Zoned,
+    zdt: ZonedDateTime,
 }
 
 impl DateTimeFlexible {
@@ -498,14 +501,15 @@ impl DateTimeFlexible {
     /// This types `FromStr` and `FromBytes` impls are equivalent to calling
     /// this routine with `&crate::NOW`.
     pub fn parse_relative(
-        relative: &Zoned,
+        relative: &ZonedDateTime,
         s: &[u8],
     ) -> anyhow::Result<DateTimeFlexible> {
         // First try to parse something that is definitive. If it fails,
         // keep the error and we'll report it below if everything else fails.
         // We specifically try parsing a zoned datetime since my guess is
         // that it's the common case in bttf shell pipelines.
-        let temporal_parse_err = match TEMPORAL_PARSER.parse_zoned(s) {
+        let temporal_parse_err = match TEMPORAL_PARSER.parse_zoned_datetime(s)
+        {
             Err(err) => err,
             Ok(zdt) => return Ok(DateTimeFlexible::from(zdt)),
         };
@@ -525,15 +529,17 @@ impl DateTimeFlexible {
             let time = pieces.time().unwrap_or(civil::Time::midnight());
             let dt = date.to_datetime(time);
             let zdt = match pieces.offset() {
-                None => dt.to_zoned(TZ.clone())?,
+                None => dt.to_zoned_datetime(TZ.clone())?,
                 Some(fmt::temporal::PiecesOffset::Zulu) => {
-                    dt.to_zoned(tz::TimeZone::unknown())?
+                    dt.to_zoned_datetime(tz::TimeZone::unknown())?
                 }
                 Some(fmt::temporal::PiecesOffset::Numeric(ref off)) => {
                     if off.offset() == Offset::UTC && off.is_negative() {
-                        dt.to_zoned(tz::TimeZone::unknown())?
+                        dt.to_zoned_datetime(tz::TimeZone::unknown())?
                     } else {
-                        dt.to_zoned(tz::TimeZone::fixed(off.offset()))?
+                        dt.to_zoned_datetime(tz::TimeZone::fixed(
+                            off.offset(),
+                        ))?
                     }
                 }
                 Some(unk) => {
@@ -543,7 +549,7 @@ impl DateTimeFlexible {
             return Ok(DateTimeFlexible { zdt });
         }
         // N.B. This also includes RFC 9110.
-        if let Ok(zdt) = RFC2822_PARSER.parse_zoned(s) {
+        if let Ok(zdt) = RFC2822_PARSER.parse_zoned_datetime(s) {
             return Ok(DateTimeFlexible::from(zdt));
         }
         // Now try parsing a relative datetime.
@@ -564,7 +570,7 @@ impl DateTimeFlexible {
     /// `next thurs`. When a relative format is found, it is interpreted
     /// relative to the zoned datetime given.
     pub fn parse_only_relative(
-        relative: &Zoned,
+        relative: &ZonedDateTime,
         s: &[u8],
     ) -> anyhow::Result<DateTimeFlexible> {
         if let Some(zdt) = parse_relative(relative, s.as_bstr())? {
@@ -574,14 +580,14 @@ impl DateTimeFlexible {
     }
 }
 
-impl From<Zoned> for DateTimeFlexible {
-    fn from(zdt: Zoned) -> DateTimeFlexible {
+impl From<ZonedDateTime> for DateTimeFlexible {
+    fn from(zdt: ZonedDateTime) -> DateTimeFlexible {
         DateTimeFlexible { zdt }
     }
 }
 
-impl From<DateTimeFlexible> for Zoned {
-    fn from(dt: DateTimeFlexible) -> Zoned {
+impl From<DateTimeFlexible> for ZonedDateTime {
+    fn from(dt: DateTimeFlexible) -> ZonedDateTime {
         dt.zdt
     }
 }
@@ -608,9 +614,9 @@ impl FromBytes for DateTimeFlexible {
 /// found, but it could not be processed into a zoned datetime for some
 /// reason, then an error is returned.
 fn parse_relative(
-    relative: &Zoned,
+    relative: &ZonedDateTime,
     s: &BStr,
-) -> anyhow::Result<Option<Zoned>> {
+) -> anyhow::Result<Option<ZonedDateTime>> {
     match &**s {
         b"now" => return Ok(Some(relative.clone())),
         b"today" => return Ok(Some(relative.start_of_day()?)),
@@ -684,10 +690,10 @@ fn parse_relative(
 /// zoned datetime falls on the given weekday, then the zoned datetime is
 /// returned unchanged.
 fn relative_weekday(
-    relative: &Zoned,
+    relative: &ZonedDateTime,
     mut multiplier: i32,
     weekday: Weekday,
-) -> anyhow::Result<Zoned> {
+) -> anyhow::Result<ZonedDateTime> {
     if multiplier == 0 {
         if relative.weekday() == weekday.get() {
             return Ok(relative.clone());
@@ -701,7 +707,10 @@ fn relative_weekday(
 
 /// Parse a description of a day from `s` (today, yesterday or tomorrow)
 /// relative to the datetime given.
-fn parse_day(relative: &Zoned, s: &BStr) -> anyhow::Result<Option<Zoned>> {
+fn parse_day(
+    relative: &ZonedDateTime,
+    s: &BStr,
+) -> anyhow::Result<Option<ZonedDateTime>> {
     match &**s {
         b"today" => Ok(Some(relative.clone())),
         b"yesterday" => Ok(Some(relative.yesterday()?)),
@@ -750,9 +759,9 @@ fn parse_multiplier(s: &BStr) -> anyhow::Result<Option<i32>> {
 
 /// Parses a friendly duration as a relative datetime.
 fn parse_friendly(
-    relative: &Zoned,
+    relative: &ZonedDateTime,
     s: &BStr,
-) -> anyhow::Result<Option<Zoned>> {
+) -> anyhow::Result<Option<ZonedDateTime>> {
     if let Ok(span) = s.parse::<TimeSpan>() {
         let zdt = relative.checked_add(span.get()).with_context(|| {
             format!("failed to add `{span:#}` to `{relative}`")
@@ -763,7 +772,10 @@ fn parse_friendly(
 }
 
 /// Parses one of a variety of different clock times, including am/pm.
-fn parse_time(relative: &Zoned, s: &BStr) -> anyhow::Result<Option<Zoned>> {
+fn parse_time(
+    relative: &ZonedDateTime,
+    s: &BStr,
+) -> anyhow::Result<Option<ZonedDateTime>> {
     static FORMATS: &[&str] =
         &["%I:%M:%S%P", "%I:%M%P", "%I%P", "%H:%M:%S", "%H:%M"];
 

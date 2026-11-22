@@ -2,7 +2,7 @@ use std::{env, io::Write, process::ExitCode, sync::LazyLock};
 
 use {
     anyhow::Context,
-    jiff::{Timestamp, Zoned, tz::TimeZone},
+    jiff::{Timestamp, ZonedDateTime, tz::TimeZone},
 };
 
 use crate::locale::Locale;
@@ -25,7 +25,7 @@ mod weekdate;
 
 static TZ: LazyLock<TimeZone> = LazyLock::new(|| TimeZone::system());
 
-static NOW: LazyLock<Zoned> = LazyLock::new(|| {
+static NOW: LazyLock<ZonedDateTime> = LazyLock::new(|| {
     let ts = match read_env_bttf_now() {
         Ok(Some(ts)) => {
             log::trace!(
@@ -51,7 +51,7 @@ static NOW: LazyLock<Zoned> = LazyLock::new(|| {
             now
         }
     };
-    ts.to_zoned(TZ.clone())
+    ts.to_zoned_datetime(TZ.clone())
 });
 
 static LOCALE: LazyLock<Locale> = LazyLock::new(|| {

@@ -99,7 +99,7 @@ impl MetadataKind {
         let systime = result.with_context(|| path.display().to_string())?;
         let ts = jiff::Timestamp::try_from(systime)
             .with_context(|| path.display().to_string())?;
-        let zdt = ts.to_zoned(jiff::tz::TimeZone::unknown());
+        let zdt = ts.to_zoned_datetime(jiff::tz::TimeZone::unknown());
         Ok(DateTime::from(zdt))
     }
 }

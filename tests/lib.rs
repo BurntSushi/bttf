@@ -1,6 +1,6 @@
 use std::{ffi::OsStr, path::Path, sync::LazyLock};
 
-use jiff::{Zoned, civil};
+use jiff::{ZonedDateTime, civil};
 
 mod command;
 mod span;
@@ -9,7 +9,7 @@ mod time;
 mod tz;
 mod untag;
 
-static NOW: LazyLock<Zoned> = LazyLock::new(|| {
+static NOW: LazyLock<ZonedDateTime> = LazyLock::new(|| {
     civil::date(2024, 7, 20)
         .at(16, 30, 55, 0)
         .in_tz("America/New_York")

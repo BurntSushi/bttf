@@ -33,8 +33,8 @@ impl DateTimeRound {
         Ok(dt.get().round(self.options())?.into())
     }
 
-    fn options(&self) -> jiff::ZonedRound {
-        jiff::ZonedRound::new()
+    fn options(&self) -> jiff::ZonedDateTimeRound {
+        jiff::ZonedDateTimeRound::new()
             .smallest(self.smallest.get())
             .mode(self.mode.get())
             .increment(self.increment)

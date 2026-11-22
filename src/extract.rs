@@ -368,7 +368,7 @@ fn validate_user_provided(_bytes: &[u8]) -> bool {
 }
 
 fn validate_rfc9557(bytes: &[u8]) -> bool {
-    TEMPORAL_PARSER.parse_zoned(bytes).is_ok()
+    TEMPORAL_PARSER.parse_zoned_datetime(bytes).is_ok()
 }
 
 fn validate_rfc3339(bytes: &[u8]) -> bool {
@@ -377,7 +377,7 @@ fn validate_rfc3339(bytes: &[u8]) -> bool {
 
 // Also used for RFC 9110. (Jiff doesn't have a separate RFC 9110 parser.)
 fn validate_rfc2822(bytes: &[u8]) -> bool {
-    RFC2822_PARSER.parse_zoned(bytes).is_ok()
+    RFC2822_PARSER.parse_zoned_datetime(bytes).is_ok()
 }
 
 // We don't do any extra validation since every match is a true positive.

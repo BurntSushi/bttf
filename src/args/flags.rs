@@ -10,7 +10,7 @@ use {
     anyhow::Context,
     bstr::{BStr, ByteSlice},
     jiff::{
-        Zoned, civil, fmt,
+        ZonedDateTime, civil, fmt,
         tz::{self, Offset},
     },
 };
@@ -540,7 +540,7 @@ default, `%d` will only try to consume at most 2 digits.
                 }
             }
             Format::Rfc2822 => RFC2822
-                .zoned_to_string(zdt)
+                .zoned_datetime_to_string(zdt)
                 .context("RFC 2822 formatting failed")?,
             Format::Rfc9110 => RFC2822
                 .timestamp_to_rfc9110_string(&zdt.timestamp())
@@ -557,16 +557,16 @@ default, `%d` will only try to consume at most 2 digits.
 
     fn parse_impl(
         &self,
-        relative: &Zoned,
+        relative: &ZonedDateTime,
         dt: &BStr,
-    ) -> anyhow::Result<Zoned> {
+    ) -> anyhow::Result<ZonedDateTime> {
         static TEMPORAL_PARSER: fmt::temporal::DateTimeParser =
             fmt::temporal::DateTimeParser::new();
         static RFC2822_PARSER: fmt::rfc2822::DateTimeParser =
             fmt::rfc2822::DateTimeParser::new();
 
         Ok(match *self {
-            Format::Rfc9557 => TEMPORAL_PARSER.parse_zoned(dt)?,
+            Format::Rfc9557 => TEMPORAL_PARSER.parse_zoned_datetime(dt)?,
             Format::Rfc3339 => {
                 // This is a little weird, but we try to stick specifically
                 // to RFC 3339 here. Since bttf's "default" datetime type
@@ -611,13 +611,15 @@ default, `%d` will only try to consume at most 2 digits.
                 let dt = date.to_datetime(time);
                 let zdt = match offset {
                     fmt::temporal::PiecesOffset::Zulu => {
-                        dt.to_zoned(tz::TimeZone::unknown())?
+                        dt.to_zoned_datetime(tz::TimeZone::unknown())?
                     }
                     fmt::temporal::PiecesOffset::Numeric(ref off) => {
                         if off.offset() == Offset::UTC && off.is_negative() {
-                            dt.to_zoned(tz::TimeZone::unknown())?
+                            dt.to_zoned_datetime(tz::TimeZone::unknown())?
                         } else {
-                            dt.to_zoned(tz::TimeZone::fixed(off.offset()))?
+                            dt.to_zoned_datetime(tz::TimeZone::fixed(
+                                off.offset(),
+                            ))?
                         }
                     }
                     unk => {
@@ -631,17 +633,17 @@ default, `%d` will only try to consume at most 2 digits.
             // precise about *parsing* RFC 9110, since you usually want to
             // be flexible.
             Format::Rfc2822 | Format::Rfc9110 => {
-                RFC2822_PARSER.parse_zoned(dt)?
+                RFC2822_PARSER.parse_zoned_datetime(dt)?
             }
             Format::Strtime(ref fmt) => {
                 let tm = fmt::strtime::parse(fmt.as_bytes(), dt)?;
-                match tm.to_zoned() {
+                match tm.to_zoned_datetime() {
                     Ok(zdt) => return Ok(zdt),
                     Err(err) => {
                         // If we parsed an offset or an IANA time zone
-                        // identifier but still couldn't get a `Zoned`, then
-                        // the error is probably legit and we should bubble
-                        // it up. Otherwise, we can try some more things.
+                        // identifier but still couldn't get a `ZonedDateTime`,
+                        // then the error is probably legit and we should
+                        // bubble it up. Otherwise, we can try some more things.
                         if tm.offset().is_some()
                             || tm.iana_time_zone().is_some()
                         {
@@ -658,7 +660,7 @@ default, `%d` will only try to consume at most 2 digits.
                 let dt = tm.to_datetime()?;
                 // We interpret civil datetimes without offset/time-zone info
                 // as local time.
-                dt.to_zoned(crate::TZ.clone())?
+                dt.to_zoned_datetime(crate::TZ.clone())?
             }
             Format::Flexible => {
                 DateTimeFlexible::parse_relative(relative, dt)?.into()

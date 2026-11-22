@@ -7,7 +7,7 @@ use std::{
 use {
     anyhow::Context,
     jiff::{
-        Span, ToSpan, Zoned,
+        Span, ToSpan, ZonedDateTime,
         civil::{DateTime, Weekday},
         tz::{AmbiguousOffset, TimeZone},
     },
@@ -40,9 +40,9 @@ pub struct RecurrenceRule {
 #[derive(Debug)]
 struct RecurrenceRuleInner {
     freq: Frequency,
-    zoned_start: Zoned,
+    zoned_start: ZonedDateTime,
     civil_start: DateTime,
-    zoned_until: Option<Zoned>,
+    zoned_until: Option<ZonedDateTime>,
     interval: Span,
     by_month: Box<[i8]>,
     // can be negative
@@ -66,7 +66,10 @@ impl RecurrenceRule {
     ///
     /// The frequency and the starting point are the only two things required
     /// to create a rule.
-    pub fn builder(freq: Frequency, start: Zoned) -> RecurrenceRuleBuilder {
+    pub fn builder(
+        freq: Frequency,
+        start: ZonedDateTime,
+    ) -> RecurrenceRuleBuilder {
         RecurrenceRuleBuilder::new(freq, start)
     }
 
@@ -92,7 +95,7 @@ impl RecurrenceRule {
 
 impl<'r> IntoIterator for &'r RecurrenceRule {
     type IntoIter = RecurrenceIter<'r>;
-    type Item = Zoned;
+    type Item = ZonedDateTime;
 
     fn into_iter(self) -> RecurrenceIter<'r> {
         self.iter()
@@ -942,7 +945,7 @@ impl<'r> RecurrenceIter<'r> {
                 let zoned_next = self
                     .rule
                     .time_zone()
-                    .to_ambiguous_zoned(next)
+                    .to_ambiguous_zoned_datetime(next)
                     .later()
                     .ok()?;
                 if &zoned_next > until {
@@ -1002,9 +1005,9 @@ impl<'r> RecurrenceIter<'r> {
 }
 
 impl<'r> Iterator for RecurrenceIter<'r> {
-    type Item = Zoned;
+    type Item = ZonedDateTime;
 
-    fn next(&mut self) -> Option<Zoned> {
+    fn next(&mut self) -> Option<ZonedDateTime> {
         while !self.is_done() {
             while let Some(zdt) = self.set.pop(&self.rule) {
                 return Some(zdt);
@@ -1022,8 +1025,8 @@ impl<'r> std::iter::FusedIterator for RecurrenceIter<'r> {}
 #[derive(Clone, Debug)]
 pub struct RecurrenceRuleBuilder {
     freq: Frequency,
-    start: Zoned,
-    until: Option<Zoned>,
+    start: ZonedDateTime,
+    until: Option<ZonedDateTime>,
     interval: i32,
     by_month: Vec<i8>,
     by_week: Vec<i8>,
@@ -1038,7 +1041,7 @@ pub struct RecurrenceRuleBuilder {
 }
 
 impl RecurrenceRuleBuilder {
-    fn new(freq: Frequency, start: Zoned) -> RecurrenceRuleBuilder {
+    fn new(freq: Frequency, start: ZonedDateTime) -> RecurrenceRuleBuilder {
         RecurrenceRuleBuilder {
             freq,
             start,
@@ -1242,7 +1245,10 @@ impl RecurrenceRuleBuilder {
         Ok(RecurrenceRule { inner })
     }
 
-    pub fn until(&mut self, until: Zoned) -> &mut RecurrenceRuleBuilder {
+    pub fn until(
+        &mut self,
+        until: ZonedDateTime,
+    ) -> &mut RecurrenceRuleBuilder {
         self.until = Some(until);
         self
     }
@@ -1349,13 +1355,13 @@ struct RecurrenceSet {
     /// `RecurrenceSet`. The abstraction somewhat sucks. If this needed to be
     /// a public API, we'd probably use more type machinery. But in practice,
     /// this is mostly treated as scratch space by `Expander`.
-    zoned: Vec<Zoned>,
+    zoned: Vec<ZonedDateTime>,
     /// A queued zoned datetime that should be emitted next. This can get used
     /// when, for example, a generated datetime falls into a fold. In that
     /// case, the datetime gets duplicated for each offset in the fold. The
     /// chronologically first one is returned and the one after it is pushed
     /// into this placeholder position to be emitted next.
-    tmp: Option<Zoned>,
+    tmp: Option<ZonedDateTime>,
 }
 
 impl RecurrenceSet {
@@ -1401,7 +1407,7 @@ impl RecurrenceSet {
         self.civil.dedup();
     }
 
-    fn pop(&mut self, rule: &RecurrenceRule) -> Option<Zoned> {
+    fn pop(&mut self, rule: &RecurrenceRule) -> Option<ZonedDateTime> {
         loop {
             let next = self.zoned.pop().or_else(|| self.pop_civil(rule))?;
             // For simplicity of implementation, the recurrence rule
@@ -1431,18 +1437,18 @@ impl RecurrenceSet {
         }
     }
 
-    fn pop_civil(&mut self, rule: &RecurrenceRule) -> Option<Zoned> {
+    fn pop_civil(&mut self, rule: &RecurrenceRule) -> Option<ZonedDateTime> {
         let tz = rule.time_zone();
         loop {
             if let Some(zdt) = self.tmp.take() {
                 return Some(zdt);
             }
             let dt = self.civil.pop()?;
-            let azdt = tz.to_ambiguous_zoned(dt);
+            let azdt = tz.to_ambiguous_zoned_datetime(dt);
             let next = match azdt.offset() {
                 AmbiguousOffset::Unambiguous { offset } => {
                     let Ok(ts) = offset.to_timestamp(dt) else { continue };
-                    ts.to_zoned(tz.clone())
+                    ts.to_zoned_datetime(tz.clone())
                 }
                 // RFC 5545 explicitly says that if a time is invalid for a
                 // particular time zone, then it should be skipped.
@@ -1458,12 +1464,12 @@ impl RecurrenceSet {
                 // we make, it's unlikely to matter much in practice.
                 AmbiguousOffset::Fold { before, after } => {
                     if let Ok(ts) = after.to_timestamp(dt) {
-                        self.tmp = Some(ts.to_zoned(tz.clone()));
+                        self.tmp = Some(ts.to_zoned_datetime(tz.clone()));
                     }
                     // If this fails but the above succeeds, then we'll loop
                     // back around and pop from `self.tmp`.
                     if let Ok(ts) = before.to_timestamp(dt) {
-                        ts.to_zoned(tz.clone())
+                        ts.to_zoned_datetime(tz.clone())
                     } else {
                         continue;
                     }
@@ -5752,11 +5758,11 @@ mod tests {
         );
     }
 
-    fn now() -> Zoned {
+    fn now() -> ZonedDateTime {
         crate::NOW.clone()
     }
 
-    fn zoned(s: &str) -> Zoned {
+    fn zoned(s: &str) -> ZonedDateTime {
         s.parse().unwrap()
     }
 

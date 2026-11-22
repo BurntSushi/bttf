@@ -26,7 +26,7 @@ expects a span.
 To format a span as an ISO 8601 duration, use `bttf span iso8601`.
 
 Full details on the friendly format can be found here:
-https://docs.rs/jiff/0.2/jiff/fmt/friendly/index.html
+https://docs.rs/jiff/1/jiff/fmt/friendly/index.html
 
 USAGE:
     bttf span fmt <span>...

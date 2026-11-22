@@ -33,7 +33,7 @@ impl Locale {
         Locale(IcuLocale::UNKNOWN)
     }
 
-    /// Create a formatter that implements Jiff's `strtime::Locale` trait.
+    /// Create a formatter that implements Jiff's `strtime::Custom` trait.
     pub fn to_formatter(&self) -> anyhow::Result<StrtimeLocaleFormatter> {
         let zone = ZoneFieldSet::SpecificShort(SpecificShort);
         let fset = if self.0.id.language.is_unknown() {
@@ -89,14 +89,14 @@ pub struct StrtimeLocaleFormatter {
 }
 
 impl Custom for StrtimeLocaleFormatter {
-    fn format_datetime<W: Write>(
+    fn format_datetime(
         &self,
-        _config: &jiff::fmt::strtime::Config<Self>,
+        _config: &jiff::fmt::strtime::Config<dyn Custom + '_>,
         _ext: &Extension,
         tm: &BrokenDownTime,
-        wtr: &mut W,
+        wtr: &mut dyn Write,
     ) -> Result<(), jiff::Error> {
-        let zdt = tm.to_zoned()?;
+        let zdt = tm.to_zoned_datetime()?;
         let zdt: ZonedDateTime<Iso, TimeZoneInfo<AtTime>> =
             (&zdt).convert_into();
         self.datetime
@@ -110,12 +110,12 @@ impl Custom for StrtimeLocaleFormatter {
         Ok(())
     }
 
-    fn format_date<W: Write>(
+    fn format_date(
         &self,
-        _config: &jiff::fmt::strtime::Config<Self>,
+        _config: &jiff::fmt::strtime::Config<dyn Custom + '_>,
         _ext: &Extension,
         tm: &BrokenDownTime,
-        wtr: &mut W,
+        wtr: &mut dyn Write,
     ) -> Result<(), jiff::Error> {
         let date = tm.to_date()?;
         let date: Date<Iso> = date.convert_into();
@@ -130,12 +130,12 @@ impl Custom for StrtimeLocaleFormatter {
         Ok(())
     }
 
-    fn format_time<W: Write>(
+    fn format_time(
         &self,
-        _config: &jiff::fmt::strtime::Config<Self>,
+        _config: &jiff::fmt::strtime::Config<dyn Custom + '_>,
         _ext: &Extension,
         tm: &BrokenDownTime,
-        wtr: &mut W,
+        wtr: &mut dyn Write,
     ) -> Result<(), jiff::Error> {
         let time = tm.to_time()?;
         let time: Time = time.convert_into();
@@ -150,12 +150,12 @@ impl Custom for StrtimeLocaleFormatter {
         Ok(())
     }
 
-    fn format_12hour_time<W: Write>(
+    fn format_12hour_time(
         &self,
-        _config: &jiff::fmt::strtime::Config<Self>,
+        _config: &jiff::fmt::strtime::Config<dyn Custom + '_>,
         _ext: &Extension,
         tm: &BrokenDownTime,
-        wtr: &mut W,
+        wtr: &mut dyn Write,
     ) -> Result<(), jiff::Error> {
         let time = tm.to_time()?;
         let time: Time = time.convert_into();
@@ -198,7 +198,7 @@ where
         tm: &BrokenDownTime,
         wtr: &mut W,
     ) -> Result<(), jiff::Error> {
-        let zdt = tm.to_zoned()?;
+        let zdt = tm.to_zoned_datetime()?;
         let zdt: ZonedDateTime<Iso, TimeZoneInfo<Full>> =
             (&zdt).convert_into();
         self.0

@@ -25,7 +25,7 @@ pub fn run(p: &mut lexopt::Parser) -> anyhow::Result<()> {
         use crate::{args::flags::Format, datetime::DateTime};
         use std::io::Write;
 
-        // Instead of just making a `BrokenDownTime` from `Zoned`
+        // Instead of just making a `BrokenDownTime` from `ZonedDateTime`
         // and calling the formatting API directly, we specifically
         // allow for a `String` allocation here and reuse our existing
         // strftime API to avoid creating multiple copies of the

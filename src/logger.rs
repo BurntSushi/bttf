@@ -45,21 +45,21 @@ impl Log for Logger {
     }
 
     fn log(&self, record: &log::Record<'_>) {
-        // We avoid calling `Zoned::now()` here, because that might try to
-        // read the system time zone from disk, and that in turn can emit
-        // log messages. But this is the log implementation, so side-step that
-        // to avoid endless recursion.
+        // We avoid calling `ZonedDateTime::now()` here, because that might try
+        // to read the system time zone from disk, and that in turn can emit
+        // log messages. But this is the log implementation, so side-step
+        // that to avoid endless recursion.
         //
         // This does technically rely on Jiff not emitting log statements
-        // for `Timestamp::now()`, `Timestamp::to_zoned` and for formatting.
-        // We should probably make that a semver guarantee...
+        // for `Timestamp::now()`, `Timestamp::to_zoned_datetime` and for
+        // formatting. We should probably make that a semver guarantee...
         let ts = jiff::Timestamp::now();
         let now = self
             .tz
             .lock()
             .unwrap()
             .clone()
-            .map(|tz| ts.to_zoned(tz).to_string())
+            .map(|tz| ts.to_zoned_datetime(tz).to_string())
             .unwrap_or_else(|| ts.to_string());
         match (record.file(), record.line()) {
             (Some(file), Some(line)) => {
