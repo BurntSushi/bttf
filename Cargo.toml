@@ -1,6 +1,6 @@
 [package]
 name = "bttf"
-version = "0.1.4"  #:version
+version = "0.2.0"  #:version
 authors = ["Andrew Gallant <jamslam@gmail.com>"]
 description = """
 A command-line utility for doing datetime arithmetic, parsing and formatting.
